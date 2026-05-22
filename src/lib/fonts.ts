@@ -30,6 +30,7 @@ export function ensureMonoFontsLoaded(): Promise<void> {
   monoReady = Promise.allSettled([
     document.fonts.load('400 14px "JetBrains Mono"'),
     document.fonts.load('700 14px "JetBrains Mono"'),
+    ...NERD_FONT_CANDIDATES.map((f) => document.fonts.load(`12px "${f}"`)),
   ]).then(() => undefined);
   return monoReady;
 }
@@ -37,8 +38,7 @@ export function ensureMonoFontsLoaded(): Promise<void> {
 export function detectMonoFontFamily(): string {
   if (detected) return detected;
   if (typeof document === "undefined" || !document.fonts) {
-    detected = FALLBACK_CHAIN;
-    return detected;
+    return FALLBACK_CHAIN;
   }
   for (const f of NERD_FONT_CANDIDATES) {
     try {
@@ -50,6 +50,5 @@ export function detectMonoFontFamily(): string {
       // Some browsers throw on invalid font shorthand; ignore.
     }
   }
-  detected = FALLBACK_CHAIN;
-  return detected;
+  return FALLBACK_CHAIN;
 }

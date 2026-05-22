@@ -1,4 +1,4 @@
-# terax-shell-integration (zlogin)
+# bunnyshell-shell-integration (zlogin)
 #
 # This is the LAST init file zsh runs before entering the prompt loop, so its
 # exit status becomes `$?` for the very first prompt. Without the trailing `:`,
@@ -6,8 +6,8 @@
 # first render — themes that condition prompt color on `%?` (robbyrussell etc.)
 # show a red error indicator on a clean shell start.
 {
-  _terax_user_zdotdir="${TERAX_USER_ZDOTDIR:-$HOME}"
-  [ -f "$_terax_user_zdotdir/.zlogin" ] && source "$_terax_user_zdotdir/.zlogin"
-  unset _terax_user_zdotdir
+  _bunnyshell_user_zdotdir="${BUNNYSHELL_USER_ZDOTDIR:-$HOME}"
+  [ -f "$_bunnyshell_user_zdotdir/.zlogin" ] && source "$_bunnyshell_user_zdotdir/.zlogin"
+  unset _bunnyshell_user_zdotdir
 }
 :

@@ -1,12 +1,12 @@
-# Contributing to Terax
+# Contributing to Bunnyshell
 
-Terax is a solo-maintained project with a strong product direction. Contributions are welcome, but **alignment matters more than volume**.
+Bunnyshell is a solo-maintained project with a strong product direction. Contributions are welcome, but **alignment matters more than volume**.
 
 This document helps you decide *whether* and *how* to contribute in a way that's likely to get merged, so neither of us wastes time.
 
 ## How this project is run
 
-- Terax has one active maintainer ([@crynta](https://github.com/crynta)).
+- Bunnyshell has one active maintainer ([@crynta](https://github.com/crynta)).
 - Review bandwidth is limited.
 - Not every contribution can be accepted, even if it's technically correct. Alignment with project direction matters as much as code quality.
 - For scope and direction, see [ROADMAP.md](ROADMAP.md). Read it before opening anything non-trivial.
@@ -72,7 +72,7 @@ A 10-minute conversation saves a 500-line PR that doesn't fit the roadmap.
 
 ## Quality bar
 
-Terax positions itself as **lightweight, fast, production-grade**. Every PR is reviewed against:
+Bunnyshell positions itself as **lightweight, fast, production-grade**. Every PR is reviewed against:
 
 - `pnpm exec tsc --noEmit` clean
 - `cargo clippy` clean, `cargo fmt` applied
@@ -84,11 +84,11 @@ Terax positions itself as **lightweight, fast, production-grade**. Every PR is r
 
 If you're not sure how to measure perf or what counts as a hot path, ask in Discord or an issue. Better to confirm than get bounced.
 
-## What Terax is not
+## What Bunnyshell is not
 
 To set expectations:
 
-- Terax is not trying to be a full IDE replacement (VS Code, Cursor, Zed).
+- Bunnyshell is not trying to be a full IDE replacement (VS Code, Cursor, Zed).
 - Not building: full LSP support, Jupyter notebooks, integrated debugger UI, package manager UI, full web browser.
 - This is not a curated "first open-source contribution" project. Beginners are welcome but expect normal review.
 - Mechanical refactors, broad style changes, drive-by rewrites are not helpful.

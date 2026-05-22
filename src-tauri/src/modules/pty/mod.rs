@@ -141,7 +141,7 @@ pub fn pty_close(state: tauri::State<PtyState>, id: u32) -> Result<(), String> {
         // Detached: on Windows `ClosePseudoConsole` can block until conhost
         // drains, which would freeze this Tauri worker thread and stall IPC.
         thread::Builder::new()
-            .name(format!("terax-pty-drop-{id}"))
+            .name(format!("bunnyshell-pty-drop-{id}"))
             .spawn(move || {
                 let t0 = std::time::Instant::now();
                 session::drop_session(s);

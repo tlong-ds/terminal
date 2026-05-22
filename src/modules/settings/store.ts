@@ -14,7 +14,7 @@ import { LazyStore } from "@tauri-apps/plugin-store";
 
 export type ThemePref = "system" | "light" | "dark";
 
-export const DEFAULT_THEME_ID = "terax-default";
+export const DEFAULT_THEME_ID = "bunnyshell-default";
 
 export type BackgroundKind = "none" | "image";
 
@@ -84,7 +84,7 @@ export type Preferences = {
   shortcuts: Record<ShortcutId, KeyBinding[]>;
 };
 
-const STORE_PATH = "terax-settings.json";
+const STORE_PATH = "bunnyshell-settings.json";
 const KEY_THEME = "theme";
 const KEY_THEME_ID = "themeId";
 const KEY_BG_KIND = "backgroundKind";
@@ -122,7 +122,7 @@ const KEY_LAST_WSL_DISTRO = "lastWslDistro";
 const KEY_ZOOM_LEVEL = "zoomLevel";
 const KEY_SHORTCUTS = "shortcuts";
 
-export const TERMINAL_FONT_SIZE_DEFAULT = 14;
+export const TERMINAL_FONT_SIZE_DEFAULT = 15;
 export const TERMINAL_FONT_SIZE_MIN = 8;
 export const TERMINAL_FONT_SIZE_MAX = 32;
 
@@ -139,7 +139,7 @@ export const TERMINAL_SCROLLBACK_PRESETS = [
 
 export const DEFAULT_PREFERENCES: Preferences = {
   theme: "system",
-  themeId: DEFAULT_THEME_ID,
+  themeId: "tokyo-night",
   backgroundKind: "none",
   backgroundImageId: null,
   backgroundOpacity: 0.5,
@@ -166,7 +166,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   vimMode: false,
   showHidden: false,
   terminalWebglEnabled: true,
-  terminalFontFamily: "",
+  terminalFontFamily: '"MesloLGM Nerd Font", "JetBrains Mono", SFMono-Regular, Menlo, monospace',
   terminalLetterSpacing: 0,
   terminalFontSize: TERMINAL_FONT_SIZE_DEFAULT,
   terminalScrollback: TERMINAL_SCROLLBACK_DEFAULT,
@@ -181,7 +181,7 @@ const store = new LazyStore(STORE_PATH, { defaults: {}, autoSave: 200 });
 // page lives in a separate webview, so writes there never reach the main
 // window's subscribers. Mirror every setter through a Tauri event so any
 // window can listen.
-const PREFS_CHANGED_EVENT = "terax://prefs-changed";
+const PREFS_CHANGED_EVENT = "bunnyshell://prefs-changed";
 
 async function writePref<T>(key: string, value: T): Promise<void> {
   await store.set(key, value);
@@ -533,7 +533,7 @@ export async function onPreferencesChange(
 
 // API key changes are stored in OS keychain (not the prefs store),
 // so we broadcast via a Tauri event for cross-window listeners.
-const KEYS_CHANGED_EVENT = "terax://ai-keys-changed";
+const KEYS_CHANGED_EVENT = "bunnyshell://ai-keys-changed";
 
 export async function emitKeysChanged(): Promise<void> {
   await emit(KEYS_CHANGED_EVENT);

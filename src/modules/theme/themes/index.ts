@@ -6,13 +6,15 @@ import { gruvbox } from "./gruvbox";
 import { nord } from "./nord";
 import { rosePine } from "./rose-pine";
 import { sage } from "./sage";
-import { teraxDefault } from "./terax-default";
+import { bunnyshellDefault } from "./bunnyshell-default";
+import { ghostty } from "./ghostty";
 import { tide } from "./tide";
 import { tokyoNight } from "./tokyo-night";
 
 const BUILTIN: Theme[] = [
-  teraxDefault,
+  bunnyshellDefault,
   claude,
+  ghostty,
   tokyoNight,
   nord,
   tide,
