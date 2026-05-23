@@ -2,6 +2,8 @@ import { cn } from "@/lib/utils";
 import type { EditorTab, Tab } from "@/modules/tabs";
 import { useEffect, useRef } from "react";
 import { EditorPane, type EditorPaneHandle } from "./EditorPane";
+import { PaneTreeView } from "@/components/PaneTreeView";
+import { leafIds } from "@/modules/terminal/lib/panes";
 
 type Props = {
   tabs: Tab[];
@@ -9,6 +11,7 @@ type Props = {
   onDirtyChange: (id: number, dirty: boolean) => void;
   registerHandle: (id: number, handle: EditorPaneHandle | null) => void;
   onCloseTab: (id: number) => void;
+  onFocusLeaf: (tabId: number, leafId: number) => void;
 };
 
 export function EditorStack({
@@ -17,6 +20,7 @@ export function EditorStack({
   onDirtyChange,
   registerHandle,
   onCloseTab,
+  onFocusLeaf,
 }: Props) {
   const editors = tabs.filter((t): t is EditorTab => t.kind === "editor");
 
@@ -68,9 +72,12 @@ export function EditorStack({
     return cb;
   };
 
-  // Drop callback entries for closed tabs to avoid unbounded growth.
+  // Drop callback entries for closed panes to avoid unbounded growth.
   useEffect(() => {
-    const live = new Set(editors.map((t) => t.id));
+    const live = new Set<number>();
+    for (const t of editors) {
+      for (const id of leafIds(t.paneTree)) live.add(id);
+    }
     for (const id of refCallbacks.current.keys()) {
       if (!live.has(id)) refCallbacks.current.delete(id);
     }
@@ -96,14 +103,21 @@ export function EditorStack({
             )}
             aria-hidden={!visible}
           >
-            <div className="h-full overflow-hidden rounded-md border border-border/60 bg-background">
-              <EditorPane
-                ref={getRefCallback(t.id)}
-                path={t.path}
-                onDirtyChange={getDirtyCallback(t.id)}
-                onClose={getCloseCallback(t.id)}
-              />
-            </div>
+            <PaneTreeView
+              node={t.paneTree}
+              activeLeafId={t.activeLeafId}
+              onFocusLeaf={(leafId) => onFocusLeaf(t.id, leafId)}
+              renderLeaf={(leafId) => (
+                <div className="h-full overflow-hidden rounded-md border border-border/60 bg-background">
+                  <EditorPane
+                    ref={getRefCallback(leafId)}
+                    path={t.path}
+                    onDirtyChange={getDirtyCallback(leafId)}
+                    onClose={getCloseCallback(leafId)}
+                  />
+                </div>
+              )}
+            />
           </div>
         );
       })}

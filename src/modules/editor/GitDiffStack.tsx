@@ -4,50 +4,71 @@ import type {
   Tab,
 } from "@/modules/tabs";
 import { GitDiffPane } from "./GitDiffPane";
+import { PaneTreeView } from "@/components/PaneTreeView";
 
 type Props = {
   tabs: Tab[];
   activeId: number;
+  onFocusLeaf: (tabId: number, leafId: number) => void;
 };
 
-export function GitDiffStack({ tabs, activeId }: Props) {
-  const active = tabs.find(
+export function GitDiffStack({ tabs, activeId, onFocusLeaf }: Props) {
+  const diffs = tabs.filter(
     (t): t is GitDiffTab | GitCommitFileDiffTab =>
-      (t.kind === "git-diff" || t.kind === "git-commit-file") &&
-      t.id === activeId,
+      t.kind === "git-diff" || t.kind === "git-commit-file",
   );
-  if (!active) return null;
-  if (active.kind === "git-diff") {
-    return (
-      <div className="h-full w-full">
-        <GitDiffPane
-          key={active.id}
-          active
-          source={{
-            kind: "working",
-            repoRoot: active.repoRoot,
-            path: active.path,
-            mode: active.mode,
-            originalPath: active.originalPath,
-          }}
-        />
-      </div>
-    );
-  }
+  if (diffs.length === 0) return null;
   return (
-    <div className="h-full w-full">
-      <GitDiffPane
-        key={active.id}
-        active
-        source={{
-          kind: "commit",
-          repoRoot: active.repoRoot,
-          sha: active.sha,
-          path: active.path,
-          originalPath: active.originalPath,
-        }}
-        chipLabel={active.shortSha}
-      />
+    <div className="relative h-full w-full">
+      {diffs.map((t) => {
+        const visible = t.id === activeId;
+        return (
+          <div
+            key={t.id}
+            className={
+              visible ? "absolute inset-0" : "absolute inset-0 invisible pointer-events-none"
+            }
+            aria-hidden={!visible}
+          >
+            <PaneTreeView
+              node={t.paneTree}
+              activeLeafId={t.activeLeafId}
+              onFocusLeaf={(leafId) => onFocusLeaf(t.id, leafId)}
+              renderLeaf={(leafId, focused) => {
+                if (t.kind === "git-diff") {
+                  return (
+                    <GitDiffPane
+                      key={leafId}
+                      active={visible && focused}
+                      source={{
+                        kind: "working",
+                        repoRoot: t.repoRoot,
+                        path: t.path,
+                        mode: t.mode,
+                        originalPath: t.originalPath,
+                      }}
+                    />
+                  );
+                }
+                return (
+                  <GitDiffPane
+                    key={leafId}
+                    active={visible && focused}
+                    source={{
+                      kind: "commit",
+                      repoRoot: t.repoRoot,
+                      sha: t.sha,
+                      path: t.path,
+                      originalPath: t.originalPath,
+                    }}
+                    chipLabel={t.shortSha}
+                  />
+                );
+              }}
+            />
+          </div>
+        );
+      })}
     </div>
   );
 }

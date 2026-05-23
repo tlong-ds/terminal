@@ -1,9 +1,9 @@
 import type { Tab } from "@/modules/tabs";
 import type { SearchAddon } from "@xterm/addon-search";
 import { useEffect, useMemo, useRef } from "react";
-import { PaneTreeView } from "./PaneTreeView";
-import type { TerminalPaneHandle } from "./TerminalPane";
-import { leafIds } from "./lib/panes";
+import { PaneTreeView } from "@/components/PaneTreeView";
+import { TerminalPane, type TerminalPaneHandle } from "./TerminalPane";
+import { findLeafCwd, leafIds } from "./lib/panes";
 
 type Props = {
   tabs: Tab[];
@@ -93,10 +93,23 @@ export function TerminalStack({
           >
             <PaneTreeView
               node={t.paneTree}
-              tabVisible={tabVisible}
               activeLeafId={t.activeLeafId}
               onFocusLeaf={(leafId) => onFocusLeaf(t.id, leafId)}
-              getBundle={getBundle}
+              renderLeaf={(leafId, focused) => {
+                const b = getBundle(leafId);
+                return (
+                  <TerminalPane
+                    leafId={leafId}
+                    visible={tabVisible}
+                    focused={focused}
+                    initialCwd={findLeafCwd(t.paneTree, leafId)}
+                    ref={b.setRef}
+                    onSearchReady={(_id, addon) => b.onSearch(addon)}
+                    onCwd={(_id, cwd) => b.onCwd(cwd)}
+                    onExit={(_id, code) => b.onExit(code)}
+                  />
+                );
+              }}
             />
           </div>
         );

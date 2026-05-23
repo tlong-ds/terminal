@@ -2,12 +2,15 @@ import { cn } from "@/lib/utils";
 import type { PreviewTab, Tab } from "@/modules/tabs";
 import { useEffect, useRef } from "react";
 import { PreviewPane, type PreviewPaneHandle } from "./PreviewPane";
+import { PaneTreeView } from "@/components/PaneTreeView";
+import { leafIds } from "@/modules/terminal/lib/panes";
 
 type Props = {
   tabs: Tab[];
   activeId: number;
   onUrlChange: (id: number, url: string) => void;
   registerHandle: (id: number, handle: PreviewPaneHandle | null) => void;
+  onFocusLeaf: (tabId: number, leafId: number) => void;
 };
 
 export function PreviewStack({
@@ -15,6 +18,7 @@ export function PreviewStack({
   activeId,
   onUrlChange,
   registerHandle,
+  onFocusLeaf,
 }: Props) {
   const previews = tabs.filter((t): t is PreviewTab => t.kind === "preview");
 
@@ -49,8 +53,12 @@ export function PreviewStack({
     return cb;
   };
 
+  // Drop callback entries for closed panes to avoid unbounded growth.
   useEffect(() => {
-    const live = new Set(previews.map((t) => t.id));
+    const live = new Set<number>();
+    for (const t of previews) {
+      for (const id of leafIds(t.paneTree)) live.add(id);
+    }
     for (const id of refCallbacks.current.keys()) {
       if (!live.has(id)) refCallbacks.current.delete(id);
     }
@@ -73,11 +81,18 @@ export function PreviewStack({
             )}
             aria-hidden={!visible}
           >
-            <PreviewPane
-              ref={getRefCallback(t.id)}
-              url={t.url}
-              visible={visible}
-              onUrlChange={getUrlCallback(t.id)}
+            <PaneTreeView
+              node={t.paneTree}
+              activeLeafId={t.activeLeafId}
+              onFocusLeaf={(leafId) => onFocusLeaf(t.id, leafId)}
+              renderLeaf={(leafId, focused) => (
+                <PreviewPane
+                  ref={getRefCallback(leafId)}
+                  url={t.url}
+                  visible={visible && focused}
+                  onUrlChange={getUrlCallback(leafId)}
+                />
+              )}
             />
           </div>
         );

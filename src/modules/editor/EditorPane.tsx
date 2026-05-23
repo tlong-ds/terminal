@@ -29,7 +29,7 @@ initVimGlobals();
 import { resolveLanguage } from "./lib/languageResolver";
 import { useDocument } from "./lib/useDocument";
 import { inlineCompletion } from "./lib/autocomplete/inlineExtension";
-import { getKey } from "@/modules/ai/lib/keyring";
+import { getKey } from "./lib/autocomplete/keyring";
 import { onKeysChanged } from "@/modules/settings/store";
 
 export type EditorPaneHandle = {

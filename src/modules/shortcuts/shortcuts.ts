@@ -24,7 +24,6 @@ export type ShortcutId =
   | "view.zoomIn"
   | "view.zoomOut"
   | "view.zoomReset"
-  | "ai.toggle"
   | "ai.askSelection"
   | "shortcuts.open"
   | "settings.open"
@@ -159,12 +158,6 @@ export const SHORTCUTS: Shortcut[] = [
     label: "Find in terminal",
     group: "Search",
     defaultBindings: [{ [MOD_PROP]: true, key: "f" }],
-  },
-  {
-    id: "ai.toggle",
-    label: "Toggle AI agent",
-    group: "AI",
-    defaultBindings: [{ [MOD_PROP]: true, key: "i" }],
   },
   {
     id: "ai.askSelection",

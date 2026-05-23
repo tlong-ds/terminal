@@ -4,35 +4,23 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import type { SearchAddon } from "@xterm/addon-search";
-import { TerminalPane, type TerminalPaneHandle } from "./TerminalPane";
-import type { PaneNode } from "./lib/panes";
-
-type LeafBundle = {
-  setRef: (h: TerminalPaneHandle | null) => void;
-  onSearch: (addon: SearchAddon) => void;
-  onCwd: (cwd: string) => void;
-  onExit: (code: number) => void;
-};
+import type { PaneNode } from "@/modules/terminal/lib/panes";
 
 type Props = {
   node: PaneNode;
-  tabVisible: boolean;
   activeLeafId: number;
   onFocusLeaf: (leafId: number) => void;
-  getBundle: (leafId: number) => LeafBundle;
+  renderLeaf: (leafId: number, focused: boolean) => React.ReactNode;
 };
 
 export function PaneTreeView({
   node,
-  tabVisible,
   activeLeafId,
   onFocusLeaf,
-  getBundle,
+  renderLeaf,
 }: Props) {
   if (node.kind === "leaf") {
     const focused = node.id === activeLeafId;
-    const b = getBundle(node.id);
     return (
       <div
         onMouseDownCapture={() => {
@@ -46,16 +34,7 @@ export function PaneTreeView({
         data-pane-leaf={node.id}
         className="relative h-full w-full"
       >
-        <TerminalPane
-          leafId={node.id}
-          visible={tabVisible}
-          focused={focused}
-          initialCwd={node.cwd}
-          ref={b.setRef}
-          onSearchReady={(_id, addon) => b.onSearch(addon)}
-          onCwd={(_id, cwd) => b.onCwd(cwd)}
-          onExit={(_id, code) => b.onExit(code)}
-        />
+        {renderLeaf(node.id, focused)}
       </div>
     );
   }
@@ -70,10 +49,9 @@ export function PaneTreeView({
           <ResizablePanel id={`pane-${child.id}`} minSize="10%">
             <PaneTreeView
               node={child}
-              tabVisible={tabVisible}
               activeLeafId={activeLeafId}
               onFocusLeaf={onFocusLeaf}
-              getBundle={getBundle}
+              renderLeaf={renderLeaf}
             />
           </ResizablePanel>
         </Fragment>

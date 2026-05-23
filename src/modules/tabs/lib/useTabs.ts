@@ -16,21 +16,22 @@ import { disposeSession } from "@/modules/terminal/lib/useTerminalSession";
 // Matches the renderer slot pool size — over this we'd evict an active leaf.
 export const MAX_PANES_PER_TAB = 4;
 
-export type TerminalTab = {
+export type TabCommon = {
   id: number;
-  kind: "terminal";
   title: string;
-  cwd?: string;
   paneTree: PaneNode;
   activeLeafId: number;
+};
+
+export type TerminalTab = TabCommon & {
+  kind: "terminal";
+  cwd?: string;
   /** AI agent cannot read buffer / context of this terminal. */
   private?: boolean;
 };
 
-export type EditorTab = {
-  id: number;
+export type EditorTab = TabCommon & {
   kind: "editor";
-  title: string;
   path: string;
   dirty: boolean;
   /**
@@ -41,57 +42,31 @@ export type EditorTab = {
   preview: boolean;
 };
 
-export type PreviewTab = {
-  id: number;
+export type PreviewTab = TabCommon & {
   kind: "preview";
-  title: string;
   url: string;
 };
 
-export type MarkdownTab = {
-  id: number;
+export type MarkdownTab = TabCommon & {
   kind: "markdown";
-  title: string;
   path: string;
 };
 
-export type AiDiffStatus = "pending" | "approved" | "rejected";
-
-export type AiDiffTab = {
-  id: number;
-  kind: "ai-diff";
-  title: string;
-  path: string;
-  /** "" for newly created files. */
-  originalContent: string;
-  proposedContent: string;
-  /** Tool-call approval id used to resolve the AI SDK approval. */
-  approvalId: string;
-  status: AiDiffStatus;
-  isNewFile: boolean;
-};
-
-export type GitDiffTab = {
-  id: number;
+export type GitDiffTab = TabCommon & {
   kind: "git-diff";
-  title: string;
   path: string;
   repoRoot: string;
   mode: "-" | "+";
   originalPath: string | null;
 };
 
-export type GitHistoryTab = {
-  id: number;
+export type GitHistoryTab = TabCommon & {
   kind: "git-history";
-  title: string;
   repoRoot: string;
 };
 
-export type GitCommitFileDiffTab = {
-  id: number;
+export type GitCommitFileDiffTab = TabCommon & {
   kind: "git-commit-file";
-  title: string;
   repoRoot: string;
   sha: string;
   shortSha: string;
@@ -105,7 +80,6 @@ export type Tab =
   | EditorTab
   | PreviewTab
   | MarkdownTab
-  | AiDiffTab
   | GitDiffTab
   | GitHistoryTab
   | GitCommitFileDiffTab;
@@ -220,6 +194,7 @@ export function useTabs(initial?: Partial<TerminalTab>) {
           return curr;
         }
         const id = nextIdRef.current++;
+        const leafId = nextIdRef.current++;
         targetId = id;
         return [
           ...curr,
@@ -230,6 +205,8 @@ export function useTabs(initial?: Partial<TerminalTab>) {
             path,
             dirty: false,
             preview: false,
+            paneTree: { kind: "leaf", id: leafId },
+            activeLeafId: leafId,
           } satisfies EditorTab,
         ];
       } else {
@@ -256,6 +233,7 @@ export function useTabs(initial?: Partial<TerminalTab>) {
           (t) => t.kind === "editor" && (t as EditorTab).preview,
         );
         const id = nextIdRef.current++;
+        const leafId = nextIdRef.current++;
         targetId = id;
         const tab: EditorTab = {
           id,
@@ -264,6 +242,8 @@ export function useTabs(initial?: Partial<TerminalTab>) {
           path,
           dirty: false,
           preview: true,
+          paneTree: { kind: "leaf", id: leafId },
+          activeLeafId: leafId,
         };
         if (previewIdx === -1) return [...curr, tab];
         const next = [...curr];
@@ -287,87 +267,19 @@ export function useTabs(initial?: Partial<TerminalTab>) {
     );
   }, []);
 
-  const openAiDiffTab = useCallback(
-    (input: {
-      path: string;
-      originalContent: string;
-      proposedContent: string;
-      approvalId: string;
-      isNewFile: boolean;
-    }) => {
-      let targetId: number | null = null;
-      setTabs((curr) => {
-        const existing = curr.find(
-          (t) => t.kind === "ai-diff" && t.approvalId === input.approvalId,
-        );
-        if (existing) {
-          targetId = existing.id;
-          return curr;
-        }
-        const id = nextIdRef.current++;
-        targetId = id;
-        const title = `${basename(input.path)} (AI diff)`;
-        return [
-          ...curr,
-          {
-            id,
-            kind: "ai-diff",
-            title,
-            path: input.path,
-            originalContent: input.originalContent,
-            proposedContent: input.proposedContent,
-            approvalId: input.approvalId,
-            status: "pending",
-            isNewFile: input.isNewFile,
-          },
-        ];
-      });
-      if (targetId !== null) setActiveId(targetId);
-      return targetId as number | null;
-    },
-    [],
-  );
-
-  const setAiDiffStatus = useCallback(
-    (approvalId: string, status: AiDiffStatus) => {
-      setTabs((curr) =>
-        curr.map((t) =>
-          t.kind === "ai-diff" && t.approvalId === approvalId
-            ? { ...t, status }
-            : t,
-        ),
-      );
-    },
-    [],
-  );
-
-  const closeAiDiffTab = useCallback((approvalId: string) => {
-    setTabs((curr) => {
-      const target = curr.find(
-        (t) => t.kind === "ai-diff" && t.approvalId === approvalId,
-      );
-      if (!target || curr.length <= 1) {
-        if (!target) return curr;
-        return curr.map((t) =>
-          t.kind === "ai-diff" && t.approvalId === approvalId
-            ? { ...t, status: "approved" as AiDiffStatus }
-            : t,
-        );
-      }
-      const idx = curr.findIndex((t) => t.id === target.id);
-      const next = curr.filter((t) => t.id !== target.id);
-      setActiveId((active) =>
-        target.id === active ? next[Math.max(0, idx - 1)].id : active,
-      );
-      return next;
-    });
-  }, []);
-
   const newPreviewTab = useCallback((url: string) => {
     const id = nextIdRef.current++;
+    const leafId = nextIdRef.current++;
     setTabs((t) => [
       ...t,
-      { id, kind: "preview", title: titleFromUrl(url), url },
+      {
+        id,
+        kind: "preview",
+        title: titleFromUrl(url),
+        url,
+        paneTree: { kind: "leaf", id: leafId },
+        activeLeafId: leafId,
+      },
     ]);
     setActiveId(id);
     return id;
@@ -384,8 +296,19 @@ export function useTabs(initial?: Partial<TerminalTab>) {
         return curr;
       }
       const id = nextIdRef.current++;
+      const leafId = nextIdRef.current++;
       targetId = id;
-      return [...curr, { id, kind: "markdown", title: basename(path), path }];
+      return [
+        ...curr,
+        {
+          id,
+          kind: "markdown",
+          title: basename(path),
+          path,
+          paneTree: { kind: "leaf", id: leafId },
+          activeLeafId: leafId,
+        },
+      ];
     });
     if (targetId !== null) setActiveId(targetId);
     return targetId;
@@ -424,6 +347,7 @@ export function useTabs(initial?: Partial<TerminalTab>) {
       }
 
       const id = nextIdRef.current++;
+      const leafId = nextIdRef.current++;
       const nextTabs = [
         ...curr,
         {
@@ -434,6 +358,8 @@ export function useTabs(initial?: Partial<TerminalTab>) {
           repoRoot: input.repoRoot,
           mode: input.mode,
           originalPath,
+          paneTree: { kind: "leaf", id: leafId },
+          activeLeafId: leafId,
         } satisfies GitDiffTab,
       ];
       tabsRef.current = nextTabs;
@@ -463,6 +389,7 @@ export function useTabs(initial?: Partial<TerminalTab>) {
         return existing.id;
       }
       const id = nextIdRef.current++;
+      const leafId = nextIdRef.current++;
       const nextTabs = [
         ...curr,
         {
@@ -470,6 +397,8 @@ export function useTabs(initial?: Partial<TerminalTab>) {
           kind: "git-history",
           title,
           repoRoot: input.repoRoot,
+          paneTree: { kind: "leaf", id: leafId },
+          activeLeafId: leafId,
         } satisfies GitHistoryTab,
       ];
       tabsRef.current = nextTabs;
@@ -515,6 +444,7 @@ export function useTabs(initial?: Partial<TerminalTab>) {
         return existing.id;
       }
       const id = nextIdRef.current++;
+      const leafId = nextIdRef.current++;
       const nextTabs = [
         ...curr,
         {
@@ -527,6 +457,8 @@ export function useTabs(initial?: Partial<TerminalTab>) {
           subject: input.subject,
           path: input.path,
           originalPath: input.originalPath,
+          paneTree: { kind: "leaf", id: leafId },
+          activeLeafId: leafId,
         } satisfies GitCommitFileDiffTab,
       ];
       tabsRef.current = nextTabs;
@@ -630,7 +562,7 @@ export function useTabs(initial?: Partial<TerminalTab>) {
   const focusPane = useCallback((tabId: number, leafId: number) => {
     setTabs((curr) =>
       curr.map((t) => {
-        if (t.id !== tabId || t.kind !== "terminal") return t;
+        if (t.id !== tabId) return t;
         if (!hasLeaf(t.paneTree, leafId)) return t;
         if (t.activeLeafId === leafId) return t;
         const cwd = findLeafCwd(t.paneTree, leafId);
@@ -646,7 +578,7 @@ export function useTabs(initial?: Partial<TerminalTab>) {
   const focusNextPaneInTab = useCallback((tabId: number, delta: 1 | -1) => {
     setTabs((curr) =>
       curr.map((t) => {
-        if (t.id !== tabId || t.kind !== "terminal") return t;
+        if (t.id !== tabId) return t;
         const next = nextLeafId(t.paneTree, t.activeLeafId, delta);
         if (next === t.activeLeafId) return t;
         const cwd = findLeafCwd(t.paneTree, next);
@@ -661,7 +593,7 @@ export function useTabs(initial?: Partial<TerminalTab>) {
       let newLeafId: number | null = null;
       setTabs((curr) =>
         curr.map((t) => {
-          if (t.id !== tabId || t.kind !== "terminal") return t;
+          if (t.id !== tabId) return t;
           if (leafIds(t.paneTree).length >= MAX_PANES_PER_TAB) return t;
           const splitId = nextIdRef.current++;
           const leafId = nextIdRef.current++;
@@ -672,7 +604,7 @@ export function useTabs(initial?: Partial<TerminalTab>) {
             splitId,
             leafId,
             dir,
-            t.cwd,
+            "cwd" in t ? t.cwd : undefined,
           );
           return { ...t, paneTree, activeLeafId: leafId };
         }),
@@ -686,9 +618,9 @@ export function useTabs(initial?: Partial<TerminalTab>) {
     let didRemove = false;
     setTabs((curr) => {
       const tab = curr.find(
-        (t) => t.kind === "terminal" && hasLeaf(t.paneTree, leafId),
+        (t) => hasLeaf(t.paneTree, leafId),
       );
-      if (!tab || tab.kind !== "terminal") return curr;
+      if (!tab) return curr;
       const newTree = removeLeaf(tab.paneTree, leafId);
       if (newTree === null) {
         if (curr.length <= 1) return curr;
@@ -721,7 +653,7 @@ export function useTabs(initial?: Partial<TerminalTab>) {
     let removedLeaf: number | null = null;
     setTabs((curr) => {
       const t = curr.find((x) => x.id === tabId);
-      if (!t || t.kind !== "terminal") return curr;
+      if (!t) return curr;
       const target = t.activeLeafId;
       const newTree = removeLeaf(t.paneTree, target);
       if (newTree === null) {
@@ -783,12 +715,9 @@ export function useTabs(initial?: Partial<TerminalTab>) {
     pinTab,
     newPreviewTab,
     newMarkdownTab,
-    openAiDiffTab,
     openGitDiffTab,
     openCommitHistoryTab,
     openCommitFileDiffTab,
-    setAiDiffStatus,
-    closeAiDiffTab,
     closeTab,
     updateTab,
     selectByIndex,
