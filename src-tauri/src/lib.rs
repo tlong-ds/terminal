@@ -1,4 +1,5 @@
 mod modules;
+mod native_surface;
 
 use modules::{fs, git, net, pty, secrets, shell, workspace};
 use std::sync::Mutex;
@@ -175,7 +176,7 @@ pub fn run() {
             secrets::secrets_get_all,
             net::lm_ping,
             net::ai_http_request,
-            net::ai_http_stream,
+            net::ai_http_stream, native_surface::ns_create_surface, native_surface::ns_destroy_surface, native_surface::ns_resize_surface, native_surface::ns_render_lines,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
