@@ -242,6 +242,17 @@ function attachSession(
         }
         s.pty = pty;
         if (s.cols > 0 && s.rows > 0) pty.resize(s.cols, s.rows);
+
+        // If a native surface exists for this leaf, bind the PTY id to it
+        const slot = getSlotForLeaf(leafId);
+        if (slot && (slot as any).nativeHandle) {
+          try {
+            void import("@tauri-apps/api/core").then(({ invoke }) => {
+              // @ts-ignore
+              invoke("ns_bind_pty", { handle: (slot as any).nativeHandle, pty_id: pty.id }).catch(() => {});
+            });
+          } catch {}
+        }
       })
       .catch((e) => {
         s.ptyOpening = false;
