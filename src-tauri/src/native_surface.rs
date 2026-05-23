@@ -13,8 +13,7 @@ pub fn ns_create_surface(nsview_ptr: u64, width: u32, height: u32) -> Result<u64
     // Create a new TerminalRenderer via core library and register it
     let renderer = bunnyshell_core::renderer::TerminalRenderer::new(nsview_ptr, width, height)
         .map_err(|e| e.to_string())?;
-    let arc = std::sync::Arc::from(renderer);
-    let handle = register_renderer(arc);
+    let handle = register_renderer(renderer);
     Ok(handle)
 }
 
