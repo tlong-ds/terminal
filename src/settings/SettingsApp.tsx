@@ -12,6 +12,7 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { JSX, useEffect, useState } from "react";
+import { useZoom } from "@/lib/useZoom";
 import { AboutSection } from "./sections/AboutSection";
 import { GeneralSection } from "./sections/GeneralSection";
 import { ShortcutsSection } from "./sections/ShortcutsSection";
@@ -45,6 +46,8 @@ export function SettingsApp() {
   const init = usePreferencesStore((s) => s.init);
   const ActiveSection = TABS.find(t => t.id === active)?.component;
 
+  useZoom();
+
   useEffect(() => {
     void init();
   }, [init]);
@@ -70,6 +73,14 @@ export function SettingsApp() {
         data-tauri-drag-region
         className={`flex h-11 shrink-0 items-center border-b border-border/60 bg-card/60 ${IS_MAC ? "pr-3 pl-22 pt-0.5" : "pr-0 pl-3"
           }`}
+        style={
+          IS_MAC
+            ? {
+                paddingLeft: "calc(88px / var(--app-zoom))",
+                minHeight: "calc(44px / var(--app-zoom))",
+              }
+            : undefined
+        }
       >
         <Tabs
           value={active}

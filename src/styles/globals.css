@@ -128,6 +128,7 @@
     @apply bg-background text-foreground;
     margin: 0;
     overflow: hidden;
+    zoom: var(--app-zoom);
     }
   html, body, #root {
     height: 100%;
@@ -168,9 +169,7 @@
 html[data-chrome="borderless"] .bunnyshell-bg-surface {
   border-radius: 12px;
 }
-.zoom-content {
-  zoom: var(--app-zoom);
-}
+
 .zoom-exempt {
   zoom: calc(1 / var(--app-zoom));
 }

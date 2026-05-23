@@ -50,7 +50,7 @@ import {
   SourceControlPanel,
   useSourceControl,
 } from "@/modules/source-control";
-import { StatusBar } from "@/modules/statusbar";
+
 import { MAX_PANES_PER_TAB, useTabs, useWorkspaceCwd } from "@/modules/tabs";
 import {
   disposeSession,
@@ -74,10 +74,6 @@ import {
 import { UpdaterDialog } from "@/modules/updater";
 import {
   currentWorkspaceEnv,
-  getWslHome,
-  LOCAL_WORKSPACE,
-  useWorkspaceEnvStore,
-  type WorkspaceEnv,
 } from "@/modules/workspace";
 import { invoke } from "@tauri-apps/api/core";
 import { homeDir } from "@tauri-apps/api/path";
@@ -152,7 +148,6 @@ export default function App() {
     splitActivePane,
     closeActivePane,
     closePaneByLeaf,
-    resetWorkspace,
   } = useTabs(getLaunchDir() ? { cwd: getLaunchDir() } : undefined);
 
   // Mirror `tabs` into a ref so callbacks scheduled with `setTimeout`
@@ -178,10 +173,23 @@ export default function App() {
   const [gitHistoryHandle, setGitHistoryHandle] =
     useState<GitHistorySearchHandle | null>(null);
   const { zoomIn, zoomOut, zoomReset } = useZoom();
+  const zoomLevel = usePreferencesStore((s) => s.zoomLevel);
   const explorerRef = useRef<FileExplorerHandle>(null);
   const explorerReturnFocusRef = useRef<HTMLElement | null>(null);
 
   const sidebarRef = useRef<PanelImperativeHandle | null>(null);
+
+  useEffect(() => {
+    const id = requestAnimationFrame(() => {
+      const sidebar = sidebarRef.current;
+      if (!sidebar) return;
+      const collapsed = sidebar.getSize().asPercentage <= 0;
+      if (!collapsed) {
+        sidebar.resize(`${sidebarWidthRef.current * zoomLevel}px`);
+      }
+    });
+    return () => cancelAnimationFrame(id);
+  }, [zoomLevel]);
   const sidebarWidthRef = useRef(readSidebarWidth());
   const sidebarWidthWriteTimerRef = useRef(0);
   const [sidebarView, setSidebarViewState] = useState<SidebarViewId>(readSidebarView);
@@ -205,7 +213,7 @@ export default function App() {
       const panel = sidebarRef.current;
       const collapsed = panel ? panel.getSize().asPercentage <= 0 : false;
       if (collapsed) {
-        if (panel) panel.resize(`${sidebarWidthRef.current}px`);
+        if (panel) panel.resize(`${sidebarWidthRef.current * zoomLevel}px`);
         if (view !== sidebarView) persistSidebarView(view);
         return;
       }
@@ -215,7 +223,7 @@ export default function App() {
       }
       persistSidebarView(view);
     },
-    [persistSidebarView, sidebarView],
+    [persistSidebarView, sidebarView, zoomLevel],
   );
   const persistSidebarWidth = useCallback((next: number) => {
     sidebarWidthRef.current = next;
@@ -244,7 +252,7 @@ export default function App() {
     const panel = sidebarRef.current;
     const collapsed = panel ? panel.getSize().asPercentage <= 0 : false;
     if (sidebarView !== "explorer" || collapsed) {
-      if (panel && collapsed) panel.resize(`${sidebarWidthRef.current}px`);
+      if (panel && collapsed) panel.resize(`${sidebarWidthRef.current * zoomLevel}px`);
       if (sidebarView !== "explorer") persistSidebarView("explorer");
       const active = document.activeElement;
       explorerReturnFocusRef.current =
@@ -269,12 +277,11 @@ export default function App() {
     explorerReturnFocusRef.current =
       active instanceof HTMLElement && active !== document.body ? active : null;
     explorer.focus();
-  }, [persistSidebarView, sidebarView]);
+  }, [persistSidebarView, sidebarView, zoomLevel]);
 
   const [home, setHome] = useState<string | null>(null);
   const [pendingCloseTab, setPendingCloseTab] = useState<number | null>(null);
-  const workspaceEnv = useWorkspaceEnvStore((s) => s.env);
-  const setWorkspaceEnv = useWorkspaceEnvStore((s) => s.setEnv);
+
   const [launchCwd, setLaunchCwd] = useState<string | null>(null);
   const [launchCwdResolved, setLaunchCwdResolved] = useState(false);
   const [pendingDeleteTabs, setPendingDeleteTabs] = useState<number[] | null>(
@@ -294,54 +301,7 @@ export default function App() {
       .catch(() => setHome(null));
   }, []);
 
-  const switchWorkspace = useCallback(
-    async (env: WorkspaceEnv) => {
-      if (
-        env.kind === workspaceEnv.kind &&
-        (env.kind === "local" ||
-          (workspaceEnv.kind === "wsl" && env.distro === workspaceEnv.distro))
-      ) {
-        return;
-      }
-      const dirty = tabsRef.current.some((t) => (t.kind === "editor" || t.kind === "markdown") && t.dirty);
-      if (dirty) {
-        window.alert("Save or close unsaved editor tabs before switching workspace.");
-        return;
-      }
 
-      let nextHome: string | null = null;
-      try {
-        if (env.kind === "wsl") {
-          nextHome = await getWslHome(env.distro);
-        } else {
-          nextHome = (await homeDir()).replace(/\\/g, "/");
-        }
-      } catch (e) {
-        window.alert(String(e));
-        return;
-      }
-
-      for (const id of liveLeavesRef.current) disposeSession(id);
-      searchAddons.current.clear();
-      terminalRefs.current.clear();
-      editorRefs.current.clear();
-      previewRefs.current.clear();
-      setActiveSearchAddon(null);
-      setActiveEditorHandle(null);
-      setWorkspaceEnv(env.kind === "local" ? LOCAL_WORKSPACE : env);
-      setHome(nextHome);
-      setLaunchCwd(nextHome);
-      if (nextHome) {
-        try {
-          await native.workspaceAuthorize(nextHome);
-        } catch {
-          // Non-fatal — git panel will surface "not authorized" if needed.
-        }
-      }
-      resetWorkspace(nextHome ?? undefined);
-    },
-    [workspaceEnv, setWorkspaceEnv, resetWorkspace],
-  );
   useEffect(() => {
     native
       .workspaceCurrentDir()
@@ -540,19 +500,7 @@ export default function App() {
     newPrivateTab(inheritedCwdForNewTab());
   }, [newPrivateTab, inheritedCwdForNewTab]);
 
-  const sendCd = useCallback(
-    (path: string) => {
-      if (activeLeafId === null) return;
-      const term = terminalRefs.current.get(activeLeafId);
-      if (!term) return;
-      const quoted = path.includes(" ")
-        ? `'${path.replace(/'/g, `'\\''`)}'`
-        : path;
-      term.write(`cd ${quoted}\r`);
-      term.focus();
-    },
-    [activeLeafId],
-  );
+
 
   const cdInNewTab = useCallback(
     (path: string) => {
@@ -637,21 +585,7 @@ export default function App() {
         null)
       : null;
 
-  const activeFilePath = (() => {
-    if (activeTab?.kind === "editor" || activeTab?.kind === "markdown") return activeTab.path;
-    if (activeTab?.kind === "git-diff") {
-      if (/^([A-Za-z]:|\/|\\)/.test(activeTab.path)) return activeTab.path;
-      const root = activeTab.repoRoot.replace(/[\\/]+$/, "");
-      const rel = activeTab.path.replace(/^[\\/]+/, "");
-      return `${root}/${rel}`;
-    }
-    if (activeTab?.kind === "git-commit-file") {
-      const root = activeTab.repoRoot.replace(/[\\/]+$/, "");
-      const rel = activeTab.path.replace(/^[\\/]+/, "");
-      return `${root}/${rel}`;
-    }
-    return null;
-  })();
+
   const workspaceFallbackPath = launchCwdResolved
     ? (launchCwd ?? home ?? null)
     : null;
@@ -914,7 +848,7 @@ export default function App() {
     gitHistoryHandle,
   ]);
 
-  const activeCwd = activeTerminalLeafCwd;
+
 
 
 
@@ -1037,7 +971,7 @@ export default function App() {
             searchRef={searchInlineRef}
           />
 
-          <main className="zoom-content flex min-h-0 flex-1 flex-col">
+          <main className="flex min-h-0 flex-1 flex-col">
             <ResizablePanelGroup
               orientation="horizontal"
               className="min-h-0 flex-1"
@@ -1045,13 +979,15 @@ export default function App() {
               <ResizablePanel
                 id="sidebar"
                 panelRef={sidebarRef}
-                defaultSize={`${sidebarWidthRef.current}px`}
-                minSize={`${SIDEBAR_MIN_WIDTH}px`}
-                maxSize={`${SIDEBAR_MAX_WIDTH}px`}
+                defaultSize={`${sidebarWidthRef.current * zoomLevel}px`}
+                minSize={`${SIDEBAR_MIN_WIDTH * zoomLevel}px`}
+                maxSize={`${SIDEBAR_MAX_WIDTH * zoomLevel}px`}
                 collapsible
                 collapsedSize={0}
                 onResize={(size) => {
-                  if (size.inPixels > 0) persistSidebarWidth(size.inPixels);
+                  if (size.inPixels > 0) {
+                    persistSidebarWidth(size.inPixels / zoomLevel);
+                  }
                 }}
               >
                 <div className="flex h-full min-h-0 flex-col border-r border-border/60 bg-card">
@@ -1094,16 +1030,7 @@ export default function App() {
             </ResizablePanelGroup>
           </main>
 
-          <StatusBar
-            cwd={activeCwd}
-            filePath={activeFilePath}
-            home={home}
-            onCd={sendCd}
-            onWorkspaceChange={switchWorkspace}
-            privateActive={
-              activeTab?.kind === "terminal" && activeTab.private === true
-            }
-          />
+
 
           <ShortcutsDialog
             open={shortcutsOpen}

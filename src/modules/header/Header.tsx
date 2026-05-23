@@ -137,6 +137,14 @@ export function Header({
       className={`flex h-10 shrink-0 items-center gap-2 border-b border-border/60 bg-card select-none ${
         IS_MAC ? "pr-2 pl-20 pt-0.5" : "pr-0 pl-2"
       }`}
+      style={
+        IS_MAC
+          ? {
+              paddingLeft: "calc(80px / var(--app-zoom))",
+              minHeight: "calc(40px / var(--app-zoom))",
+            }
+          : undefined
+      }
     >
       <div className="flex shrink-0 items-center gap-0.5">
         <Button
