@@ -31,6 +31,8 @@ export type LeafBridge = {
   kickPty(cols: number, rows: number): void;
 };
 
+import { invoke } from "@tauri-apps/api/core";
+
 export type Slot = {
   readonly id: number;
   readonly term: Terminal;
@@ -41,6 +43,8 @@ export type Slot = {
   webglAddon: WebglAddon | null;
   webglCanvases: HTMLCanvasElement[];
   currentLeafId: number | null;
+  // Native surface handle allocated on macOS via Tauri (optional)
+  nativeHandle?: number | null;
   oscDisposers: (() => void)[];
   observer: ResizeObserver | null;
   fitTimer: ReturnType<typeof setTimeout> | null;
@@ -151,7 +155,17 @@ function createSlot(): Slot {
     lastUsedAt: 0,
   };
 
-  attachWebgl(slot);
+  // For macOS we are migrating to a native Metal surface. Skip attaching
+  // xterm's WebGL addon on macOS to avoid GPU/context issues while the
+  // native surface integration is implemented. This keeps the DOM renderer
+  // active and prepares for replacing the host with a native view.
+  if (!IS_MAC) {
+    attachWebgl(slot);
+  } else {
+    console.info("[bunnyshell-native] macOS: skipping WebGL; native surface path expected");
+    // Prepare slot for native surface allocation later when bound to a leaf.
+    slot.nativeHandle = null;
+  }
 
   term.attachCustomKeyEventHandler((event) => {
     const leafId = slot.currentLeafId;
@@ -201,6 +215,21 @@ function createSlot(): Slot {
     const leafId = slot.currentLeafId;
     if (leafId === null) return;
     adapter?.resolveLeaf(leafId)?.writeToPty(data);
+
+    // On macOS, attempt to send a lightweight snapshot update to native surface
+    if (IS_MAC && slot.nativeHandle) {
+      try {
+        const cap = Math.min(
+          SNAPSHOT_SCROLLBACK_CAP,
+          usePreferencesStore.getState().terminalScrollback,
+        );
+        const snap = slot.serializeAddon.serialize({ scrollback: cap });
+        const lines = snap ? snap.split(/\r?\n/) : [];
+        void invoke("ns_render_lines", { handle: slot.nativeHandle, lines }).catch(() => {});
+      } catch (e) {
+        // non-fatal
+      }
+    }
   });
 
   slots.push(slot);
@@ -337,6 +366,34 @@ function bindSlot(slot: Slot, p: AcquireParams): void {
   if (slot.lastCols !== p.cols || slot.lastRows !== p.rows) {
     // resizePty updates session.cols/rows + pty backend; no separate scope call.
     adapter?.resolveLeaf(p.leafId)?.resizePty(slot.lastCols, slot.lastRows);
+  }
+
+  // On macOS, allocate a native surface for this slot via Tauri command.
+  if (IS_MAC) {
+    try {
+      // Best-effort create; nsview_ptr is not available from web, so pass 0
+      // as a placeholder for now. Native side will need to associate an
+      // NSView with the renderer; this is a prototyping step.
+      void invoke("ns_create_surface", {
+        nsview_ptr: 0,
+        width: slot.lastW || 100,
+        height: slot.lastH || 100,
+      })
+        .then((res) => {
+          try {
+            // ts can't know the exact type; coerce
+            // @ts-ignore
+            slot.nativeHandle = Number(res as unknown);
+          } catch {
+            // ignore
+          }
+        })
+        .catch((_) => {
+          // ignore create failure for now
+        });
+    } catch (e) {
+      // ignore
+    }
   }
 
   if (p.searchQuery) {
@@ -485,6 +542,12 @@ function detachSlotFromLeaf(slot: Slot): void {
     getRecycler().appendChild(slot.host);
   }
 
+  if (slot.nativeHandle) {
+    try {
+      void invoke("ns_destroy_surface", { handle: slot.nativeHandle }).catch(() => {});
+    } catch {}
+    slot.nativeHandle = null;
+  }
   slot.currentLeafId = null;
   slot.lastUsedAt = performance.now();
 }
