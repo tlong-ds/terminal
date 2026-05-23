@@ -303,7 +303,7 @@ export default function App() {
       ) {
         return;
       }
-      const dirty = tabsRef.current.some((t) => t.kind === "editor" && t.dirty);
+      const dirty = tabsRef.current.some((t) => (t.kind === "editor" || t.kind === "markdown") && t.dirty);
       if (dirty) {
         window.alert("Save or close unsaved editor tabs before switching workspace.");
         return;
@@ -376,7 +376,7 @@ export default function App() {
         const normalizedPath = event.payload.path.replace(/\\/g, "/");
         const currentTabs = tabsRef.current;
         for (const t of currentTabs) {
-          if (t.kind !== "editor") continue;
+          if (t.kind !== "editor" && t.kind !== "markdown") continue;
           if (t.path.replace(/\\/g, "/") === normalizedPath) {
             editorRefs.current.get(t.id)?.reload();
           }
@@ -502,7 +502,7 @@ export default function App() {
   const handleClose = useCallback(
     (id: number) => {
       const t = tabs.find((x) => x.id === id);
-      if (t?.kind === "editor" && t.dirty) {
+      if ((t?.kind === "editor" || t?.kind === "markdown") && t.dirty) {
         setPendingCloseTab(id);
         return;
       }
@@ -584,7 +584,7 @@ export default function App() {
   const handlePathRenamed = useCallback(
     (from: string, to: string) => {
       for (const t of tabs) {
-        if (t.kind !== "editor") continue;
+        if (t.kind !== "editor" && t.kind !== "markdown") continue;
         if (t.path === from) {
           const i = to.lastIndexOf("/");
           updateTab(t.id, { path: to, title: i === -1 ? to : to.slice(i + 1) });
@@ -617,7 +617,7 @@ export default function App() {
     (path: string) => {
       const dirty: number[] = [];
       for (const t of tabs) {
-        if (t.kind !== "editor") continue;
+        if (t.kind !== "editor" && t.kind !== "markdown") continue;
         if (t.path !== path && !t.path.startsWith(`${path}/`)) continue;
         if (t.dirty) {
           dirty.push(t.id);
@@ -638,7 +638,7 @@ export default function App() {
       : null;
 
   const activeFilePath = (() => {
-    if (activeTab?.kind === "editor") return activeTab.path;
+    if (activeTab?.kind === "editor" || activeTab?.kind === "markdown") return activeTab.path;
     if (activeTab?.kind === "git-diff") {
       if (/^([A-Za-z]:|\/|\\)/.test(activeTab.path)) return activeTab.path;
       const root = activeTab.repoRoot.replace(/[\\/]+$/, "");
@@ -659,7 +659,7 @@ export default function App() {
     if (activeTab?.kind === "terminal") {
       return activeTerminalLeafCwd ?? explorerRoot ?? workspaceFallbackPath;
     }
-    if (activeTab?.kind === "editor") return dirname(activeTab.path);
+    if (activeTab?.kind === "editor" || activeTab?.kind === "markdown") return dirname(activeTab.path);
     if (activeTab?.kind === "git-diff") return activeTab.repoRoot;
     if (activeTab?.kind === "git-commit-file") return activeTab.repoRoot;
     if (activeTab?.kind === "git-history") return activeTab.repoRoot;
@@ -777,13 +777,13 @@ export default function App() {
       "view.zoomReset": zoomReset,
       "editor.undo": () => {
         const t = tabsRef.current.find((x) => x.id === activeId);
-        if (t?.kind === "editor") {
+        if (t?.kind === "editor" || t?.kind === "markdown") {
           editorRefs.current.get(t.activeLeafId)?.undo();
         }
       },
       "editor.redo": () => {
         const t = tabsRef.current.find((x) => x.id === activeId);
-        if (t?.kind === "editor") {
+        if (t?.kind === "editor" || t?.kind === "markdown") {
           editorRefs.current.get(t.activeLeafId)?.redo();
         }
       },
@@ -810,7 +810,7 @@ export default function App() {
   const shortcutsDisabled = useCallback(
     (id: ShortcutId, _e: KeyboardEvent) => {
       if (id === "editor.undo" || id === "editor.redo") {
-        return activeTab?.kind !== "editor";
+        return activeTab?.kind !== "editor" && activeTab?.kind !== "markdown";
       }
       return false;
     },
@@ -890,7 +890,7 @@ export default function App() {
         addon: activeSearchAddon,
         focus: () => terminalRefs.current.get(activeLeafId)?.focus(),
       };
-    if (isEditorTab && activeEditorHandle)
+    if ((isEditorTab || isMarkdownTab) && activeEditorHandle)
       return {
         kind: "editor",
         handle: activeEditorHandle,
@@ -906,6 +906,7 @@ export default function App() {
   }, [
     isTerminalTab,
     isEditorTab,
+    isMarkdownTab,
     isGitHistoryTab,
     activeLeafId,
     activeSearchAddon,
@@ -974,7 +975,13 @@ export default function App() {
         )}
         aria-hidden={!isMarkdownTab}
       >
-        <MarkdownStack tabs={tabs} activeId={activeId} onFocusLeaf={handleFocusLeaf} />
+        <MarkdownStack
+          tabs={tabs}
+          activeId={activeId}
+          registerHandle={registerEditorHandle}
+          onDirtyChange={handleEditorDirty}
+          onFocusLeaf={handleFocusLeaf}
+        />
       </div>
       <div
         className={cn(

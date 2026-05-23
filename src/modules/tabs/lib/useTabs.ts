@@ -50,6 +50,8 @@ export type PreviewTab = TabCommon & {
 export type MarkdownTab = TabCommon & {
   kind: "markdown";
   path: string;
+  dirty: boolean;
+  preview: boolean;
 };
 
 export type GitDiffTab = TabCommon & {
@@ -177,16 +179,18 @@ export function useTabs(initial?: Partial<TerminalTab>) {
    *   otherwise the current preview slot is replaced with the new path.
    */
   const openFileTab = useCallback((path: string, pin = true) => {
+    const isMarkdown = /\.(md|markdown|mdx)$/i.test(path);
+    const kind = isMarkdown ? "markdown" : "editor";
     let targetId: number | null = null;
     setTabs((curr) => {
       if (pin) {
-        // Persistent open: find any existing editor tab, pin it if needed.
+        // Persistent open: find any existing editor/markdown tab, pin it if needed.
         const existing = curr.find(
-          (t) => t.kind === "editor" && t.path === path,
+          (t) => t.kind === kind && t.path === path,
         );
         if (existing) {
           targetId = existing.id;
-          if ((existing as EditorTab).preview) {
+          if ((existing as any).preview) {
             return curr.map((t) =>
               t.id === existing.id ? { ...t, preview: false } : t,
             );
@@ -200,20 +204,20 @@ export function useTabs(initial?: Partial<TerminalTab>) {
           ...curr,
           {
             id,
-            kind: "editor",
+            kind,
             title: basename(path),
             path,
             dirty: false,
             preview: false,
             paneTree: { kind: "leaf", id: leafId },
             activeLeafId: leafId,
-          } satisfies EditorTab,
+          } as Tab,
         ];
       } else {
         // Preview open: persistent tab for this path takes priority.
         const persistent = curr.find(
           (t) =>
-            t.kind === "editor" && t.path === path && !(t as EditorTab).preview,
+            t.kind === kind && t.path === path && !(t as any).preview,
         );
         if (persistent) {
           targetId = persistent.id;
@@ -222,7 +226,7 @@ export function useTabs(initial?: Partial<TerminalTab>) {
         // Reuse the slot if it already shows the same path.
         const existingPreview = curr.find(
           (t) =>
-            t.kind === "editor" && t.path === path && (t as EditorTab).preview,
+            t.kind === kind && t.path === path && (t as any).preview,
         );
         if (existingPreview) {
           targetId = existingPreview.id;
@@ -230,21 +234,21 @@ export function useTabs(initial?: Partial<TerminalTab>) {
         }
         // Replace the current preview slot, or append a new one.
         const previewIdx = curr.findIndex(
-          (t) => t.kind === "editor" && (t as EditorTab).preview,
+          (t) => (t.kind === "editor" || t.kind === "markdown") && (t as any).preview,
         );
         const id = nextIdRef.current++;
         const leafId = nextIdRef.current++;
         targetId = id;
-        const tab: EditorTab = {
+        const tab: Tab = {
           id,
-          kind: "editor",
+          kind,
           title: basename(path),
           path,
           dirty: false,
           preview: true,
           paneTree: { kind: "leaf", id: leafId },
           activeLeafId: leafId,
-        };
+        } as Tab;
         if (previewIdx === -1) return [...curr, tab];
         const next = [...curr];
         next[previewIdx] = tab;
@@ -262,7 +266,7 @@ export function useTabs(initial?: Partial<TerminalTab>) {
   const pinTab = useCallback((id: number) => {
     setTabs((curr) =>
       curr.map((t) =>
-        t.id === id && t.kind === "editor" ? { ...t, preview: false } : t,
+        t.id === id && (t.kind === "editor" || t.kind === "markdown") ? { ...t, preview: false } : t,
       ),
     );
   }, []);
@@ -286,33 +290,8 @@ export function useTabs(initial?: Partial<TerminalTab>) {
   }, []);
 
   const newMarkdownTab = useCallback((path: string) => {
-    let targetId: number | null = null;
-    setTabs((curr) => {
-      const existing = curr.find(
-        (t) => t.kind === "markdown" && t.path === path,
-      );
-      if (existing) {
-        targetId = existing.id;
-        return curr;
-      }
-      const id = nextIdRef.current++;
-      const leafId = nextIdRef.current++;
-      targetId = id;
-      return [
-        ...curr,
-        {
-          id,
-          kind: "markdown",
-          title: basename(path),
-          path,
-          paneTree: { kind: "leaf", id: leafId },
-          activeLeafId: leafId,
-        },
-      ];
-    });
-    if (targetId !== null) setActiveId(targetId);
-    return targetId;
-  }, []);
+    return openFileTab(path, true);
+  }, [openFileTab]);
 
   const openGitDiffTab = useCallback(
     (input: {

@@ -11,6 +11,7 @@ import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import { EDITOR_THEME_EXT } from "./lib/themes";
 import {
   forwardRef,
+  useCallback,
   useEffect,
   useImperativeHandle,
   useMemo,
@@ -52,6 +53,7 @@ type Props = {
   onDirtyChange?: (dirty: boolean) => void;
   onSaved?: () => void;
   onClose?: () => void;
+  onContentChange?: (content: string, status?: string) => void;
 };
 
 function formatBytes(n: number): string {
@@ -61,8 +63,27 @@ function formatBytes(n: number): string {
 }
 
 export const EditorPane = forwardRef<EditorPaneHandle, Props>(
-  function EditorPane({ path, onDirtyChange, onSaved, onClose }, ref) {
+  function EditorPane({ path, onDirtyChange, onSaved, onClose, onContentChange }, ref) {
     const { doc, onChange, save, reload } = useDocument({ path, onDirtyChange });
+    const onContentChangeRef = useRef(onContentChange);
+    useEffect(() => {
+      onContentChangeRef.current = onContentChange;
+    }, [onContentChange]);
+
+    useEffect(() => {
+      if (doc.status === "ready") {
+        onContentChangeRef.current?.(doc.content, "ready");
+      } else if (doc.status === "binary" || doc.status === "toolarge" || doc.status === "error") {
+        onContentChangeRef.current?.("", doc.status);
+      } else if (doc.status === "loading") {
+        onContentChangeRef.current?.("", "loading");
+      }
+    }, [doc]);
+
+    const handleOnChange = useCallback((value: string) => {
+      onChange(value);
+      onContentChangeRef.current?.(value, "ready");
+    }, [onChange]);
     const reloadRef = useRef(reload);
     reloadRef.current = reload;
     const cmRef = useRef<ReactCodeMirrorRef>(null);
@@ -305,7 +326,7 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
         <CodeMirror
           ref={cmRef}
           value={doc.content}
-          onChange={onChange}
+          onChange={handleOnChange}
           theme={themeExt}
           extensions={extensions}
           height="100%"

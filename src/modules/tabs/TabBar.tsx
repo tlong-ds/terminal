@@ -89,7 +89,9 @@ export function TabBar({
         >
           <TabsList className="h-7 w-max gap-0.5 bg-transparent p-0">
             {tabs.map((t) => {
-              const isPreview = t.kind === "editor" && (t as EditorTab).preview;
+              const isPreview =
+                (t.kind === "editor" && (t as EditorTab).preview) ||
+                (t.kind === "markdown" && (t as any).preview);
               return (
                 <TabsTrigger
                   key={t.id}
@@ -117,7 +119,7 @@ export function TabBar({
                     <span className={cn("truncate", isPreview && "italic")}>
                       {labelFor(t)}
                     </span>
-                    {t.kind === "editor" && t.dirty ? (
+                    {(t.kind === "editor" || t.kind === "markdown") && (t as any).dirty ? (
                       <span
                         aria-label="Unsaved changes"
                         className="size-1.5 shrink-0 rounded-full bg-foreground/70"
