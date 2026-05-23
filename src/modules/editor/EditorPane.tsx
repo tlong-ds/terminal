@@ -5,7 +5,7 @@ import {
   SearchQuery,
   setSearchQuery,
 } from "@codemirror/search";
-import { keymap } from "@codemirror/view";
+import { EditorView, keymap } from "@codemirror/view";
 import { usePreferencesStore } from "@/modules/settings/preferences";
 import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import { EDITOR_THEME_EXT } from "./lib/themes";
@@ -219,7 +219,12 @@ export const EditorPane = forwardRef<EditorPaneHandle, Props>(
           ]);
           return [json(), colorSwatches()];
         }
-        return (await resolveLanguage(path)) ?? [];
+        const extension = (await resolveLanguage(path)) ?? [];
+        if (ext === "md" || ext === "markdown" || ext === "mdx") {
+          const { markdownLivePreview } = await import("./lib/markdownLivePreview");
+          return [extension, markdownLivePreview(), EditorView.lineWrapping];
+        }
+        return extension;
       };
       void resolve().then((extension) => {
         if (cancelled) return;
