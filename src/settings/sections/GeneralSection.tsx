@@ -182,41 +182,44 @@ export function GeneralSection() {
 
       <div className="flex flex-col gap-2">
         <Label>Terminal</Label>
-        <SettingRow
-          title={
-            <span className="inline-flex items-center gap-1.5">
-              Use WebGL renderer
-              <TooltipProvider delayDuration={200}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span
-                      className="cursor-help text-[11px] text-muted-foreground/70 leading-none"
-                      aria-label="More info about WebGL renderer"
+        {/* Hide the WebGL toggle on macOS since we migrate to a native Metal renderer */}
+        {typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.userAgent) ? null : (
+          <SettingRow
+            title={
+              <span className="inline-flex items-center gap-1.5">
+                Use WebGL renderer
+                <TooltipProvider delayDuration={200}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span
+                        className="cursor-help text-[11px] text-muted-foreground/70 leading-none"
+                        aria-label="More info about WebGL renderer"
+                      >
+                        ⓘ
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent
+                      side="top"
+                      className="max-w-65 text-[11px]"
                     >
-                      ⓘ
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent
-                    side="top"
-                    className="max-w-65 text-[11px]"
-                  >
-                    xterm's WebGL renderer caches glyphs in a GPU texture
-                    atlas. On some macOS setups (especially with Nerd Fonts),
-                    the atlas corrupts and terminal text becomes unreadable.
-                    Turn this off as a fallback — performance dips slightly,
-                    but text renders correctly via the DOM renderer.
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </span>
-          }
-          description="Hardware-accelerated rendering. Turn off if text shows corruption or blank tiles."
-        >
-          <Switch
-            checked={terminalWebglEnabled}
-            onCheckedChange={(v) => void setTerminalWebglEnabled(v)}
-          />
-        </SettingRow>
+                      xterm's WebGL renderer caches glyphs in a GPU texture
+                      atlas. On some macOS setups (especially with Nerd Fonts),
+                      the atlas corrupts and terminal text becomes unreadable.
+                      Turn this off as a fallback — performance dips slightly,
+                      but text renders correctly via the DOM renderer.
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </span>
+            }
+            description="Hardware-accelerated rendering. Turn off if text shows corruption or blank tiles."
+          >
+            <Switch
+              checked={terminalWebglEnabled}
+              onCheckedChange={(v) => void setTerminalWebglEnabled(v)}
+            />
+          </SettingRow>
+        )}
         <SettingRow
           title="Font family"
           description='Nerd Font name for icons (e.g. "CaskaydiaCove Nerd Font Mono"). Leave blank to auto-detect.'

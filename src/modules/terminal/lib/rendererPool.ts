@@ -31,7 +31,6 @@ export type LeafBridge = {
   kickPty(cols: number, rows: number): void;
 };
 
-import { invoke } from "@tauri-apps/api/core";
 
 export type Slot = {
   readonly id: number;
@@ -216,20 +215,12 @@ function createSlot(): Slot {
     if (leafId === null) return;
     adapter?.resolveLeaf(leafId)?.writeToPty(data);
 
-    // On macOS, attempt to send a lightweight snapshot update to native surface
-    if (IS_MAC && slot.nativeHandle) {
-      try {
-        const cap = Math.min(
-          SNAPSHOT_SCROLLBACK_CAP,
-          usePreferencesStore.getState().terminalScrollback,
-        );
-        const snap = slot.serializeAddon.serialize({ scrollback: cap });
-        const lines = snap ? snap.split(/\r?\n/) : [];
-        void invoke("ns_render_lines", { handle: slot.nativeHandle, lines }).catch(() => {});
-      } catch (e) {
-        // non-fatal
-      }
-    }
+    // On macOS the native host is responsible for rendering via PTY callbacks.
+    // Don't send snapshots or render calls from the webview; that caused
+    // duplication and lifecycle issues with the Swift-created renderers.
+    if (IS_MAC) return
+
+    // Default path: feed data into xterm (already covered by writeToPty flow)
   });
 
   slots.push(slot);
@@ -368,32 +359,12 @@ function bindSlot(slot: Slot, p: AcquireParams): void {
     adapter?.resolveLeaf(p.leafId)?.resizePty(slot.lastCols, slot.lastRows);
   }
 
-  // On macOS, allocate a native surface for this slot via Tauri command.
+  // On macOS, the native host (Swift) is expected to create and manage
+  // a Metal-backed SurfaceView. The webview should not attempt to allocate
+  // or register native renderers itself to avoid double ownership. The
+  // native host will handle PTY callbacks and rendering.
   if (IS_MAC) {
-    try {
-      // Best-effort create; nsview_ptr is not available from web, so pass 0
-      // as a placeholder for now. Native side will need to associate an
-      // NSView with the renderer; this is a prototyping step.
-      void invoke("ns_create_surface", {
-        nsview_ptr: 0,
-        width: slot.lastW || 100,
-        height: slot.lastH || 100,
-      })
-        .then((res) => {
-          try {
-            // ts can't know the exact type; coerce
-            // @ts-ignore
-            slot.nativeHandle = Number(res as unknown);
-          } catch {
-            // ignore
-          }
-        })
-        .catch((_) => {
-          // ignore create failure for now
-        });
-    } catch (e) {
-      // ignore
-    }
+    // noop; native host manages renderer creation and lifecycle
   }
 
   if (p.searchQuery) {
@@ -542,12 +513,8 @@ function detachSlotFromLeaf(slot: Slot): void {
     getRecycler().appendChild(slot.host);
   }
 
-  if (slot.nativeHandle) {
-    try {
-      void invoke("ns_destroy_surface", { handle: slot.nativeHandle }).catch(() => {});
-    } catch {}
-    slot.nativeHandle = null;
-  }
+  // Rendering handled by native host on macOS; nothing to destroy from webview.
+  slot.nativeHandle = null;
   slot.currentLeafId = null;
   slot.lastUsedAt = performance.now();
 }
