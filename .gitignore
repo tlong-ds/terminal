@@ -24,3 +24,8 @@ dist-ssr
 *.sw?
 
 *.tsbuildinfo
+
+# Build artifacts
+BunnyshellApp/.build/
+**/target/
+*.log
