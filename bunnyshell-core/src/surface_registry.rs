@@ -15,6 +15,7 @@ pub fn register_renderer(renderer: Arc<TerminalRenderer>) -> u64 {
     handle
 }
 
+#[uniffi::export]
 pub fn unregister_renderer(handle: u64) {
     REGISTRY.lock().unwrap().remove(&handle);
 }

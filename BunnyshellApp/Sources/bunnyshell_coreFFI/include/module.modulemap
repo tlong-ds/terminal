@@ -1,0 +1,4 @@
+module bunnyshell_coreFFI {
+    header "bunnyshell_coreFFI.h"
+    export *
+}

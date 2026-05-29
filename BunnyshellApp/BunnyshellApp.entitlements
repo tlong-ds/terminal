@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Allow debugger attachment in development -->
+    <key>com.apple.security.get-task-allow</key>
+    <true/>
+
+    <!-- Full user-selected file read/write (open panels, drag-and-drop) -->
+    <key>com.apple.security.files.user-selected.read-write</key>
+    <true/>
+
+    <!-- Read/write access to ~/Downloads -->
+    <key>com.apple.security.files.downloads.read-write</key>
+    <true/>
+
+    <!-- Allow outgoing network connections (for package managers, git, etc.) -->
+    <key>com.apple.security.network.client</key>
+    <true/>
+
+    <!-- Allow incoming network connections (for local dev servers) -->
+    <key>com.apple.security.network.server</key>
+    <true/>
+
+    <!-- Inherit environment from parent process (shell, PATH, etc.) -->
+    <key>com.apple.security.inherit</key>
+    <true/>
+</dict>
+</plist>

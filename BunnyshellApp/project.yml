@@ -1,0 +1,56 @@
+name: BunnyshellApp
+options:
+  bundleIdPrefix: app.crynta
+targets:
+  bunnyshell_coreFFI:
+    type: library.static
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: Sources/bunnyshell_coreFFI
+    settings:
+      HEADER_SEARCH_PATHS: $(PROJECT_DIR)/Sources/bunnyshell_coreFFI/include
+  BunnyshellCore:
+    type: library.static
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: Sources/BunnyshellCore
+    dependencies:
+      - target: bunnyshell_coreFFI
+      - sdk: Metal.framework
+      - sdk: MetalKit.framework
+      - sdk: AppKit.framework
+      - sdk: Security.framework
+      - sdk: QuartzCore.framework
+    settings:
+      LIBRARY_SEARCH_PATHS: $(PROJECT_DIR)/../target/debug
+      OTHER_LDFLAGS: -lbunnyshell_core
+      SWIFT_INCLUDE_PATHS: $(PROJECT_DIR)/Sources/bunnyshell_coreFFI/include
+  ObjCExceptionCatcher:
+    type: library.static
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: Sources/ObjCExceptionCatcher
+    settings:
+      HEADER_SEARCH_PATHS: $(PROJECT_DIR)/Sources/ObjCExceptionCatcher/include
+  BunnyshellApp:
+    type: application
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: Sources/BunnyshellApp
+    dependencies:
+      - target: BunnyshellCore
+      - target: ObjCExceptionCatcher
+      - framework: Frameworks/ghostty-internal-fat.xcframework
+        embed: false
+      - sdk: GameController.framework
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: app.crynta.bunnyshell
+      GENERATE_INFOPLIST_FILE: YES
+      LIBRARY_SEARCH_PATHS: $(PROJECT_DIR)/../target/debug
+      OTHER_LDFLAGS: -lbunnyshell_core -lc++
+      SWIFT_INCLUDE_PATHS: $(PROJECT_DIR)/Sources/ObjCExceptionCatcher/include
+      CODE_SIGN_ENTITLEMENTS: BunnyshellApp.entitlements
